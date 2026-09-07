@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-Nearest Neighbors — เพื่อนบ้านช่วยตัดสิน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #12181f;
+    --panel: #1a222c;
+    --panel-2: #202a36;
+    --line: #2c3946;
+    --text: #eceef1;
+    --text-dim: #9aa7b4;
+    --orange: #e8833a;
+    --orange-dim: #6b4a2c;
+    --apple: #7fa860;
+    --apple-dim: #3f5233;
+    --gold: #e7c465;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    line-height:1.65;
+  }
+  .wrap{max-width:900px;margin:0 auto;padding:0 28px;}
+  .narrow{max-width:680px;}
+  h1,h2,h3{font-family:'Fraunces', serif;font-weight:600;letter-spacing:-0.01em;margin:0;}
+  p{color:var(--text-dim);margin:0.6em 0;}
+  .mono{font-family:'IBM Plex Mono', monospace;}
+
+  /* HERO */
+  .hero{
+    padding:120px 0 90px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+  }
+  .hero::before{
+    content:"";
+    position:absolute;
+    right:-120px; top:-160px;
+    width:420px;height:420px;
+    border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, rgba(232,131,58,0.16), transparent 65%);
+  }
+  .hero::after{
+    content:"";
+    position:absolute;
+    left:-140px; bottom:-200px;
+    width:420px;height:420px;
+    border-radius:50%;
+    background:radial-gradient(circle at 60% 60%, rgba(127,168,96,0.14), transparent 65%);
+  }
+  .kicker{
+    color:var(--text-dim);
+    font-size:0.95rem;
+    margin-bottom:18px;
+  }
+  .kicker b{color:var(--orange);font-weight:600;}
+  .hero h1{
+    font-size:clamp(2.4rem, 5.4vw, 4rem);
+    line-height:1.05;
+    max-width:11ch;
+  }
+  .hero p.lede{
+    font-size:1.15rem;
+    max-width:52ch;
+    margin-top:26px;
+    color:#c7cdd4;
+  }
+  .fruit-row{
+    display:flex;
+    gap:10px;
+    margin-top:36px;
+    align-items:center;
+  }
+  .dot{width:13px;height:13px;border-radius:50%;display:inline-block;}
+  .fruit-row span{font-size:0.9rem;color:var(--text-dim);}
+
+  section{padding:76px 0;border-bottom:1px solid var(--line);}
+  .eyebrow{
+    font-size:0.85rem;
+    color:var(--text-dim);
+    margin-bottom:10px;
+  }
+  h2{font-size:clamp(1.6rem,3vw,2.1rem);margin-bottom:8px;}
+  .section-lede{max-width:56ch;margin-bottom:44px;}
+
+  /* STEPS */
+  .steps{display:flex;flex-direction:column;gap:0;}
+  .step{
+    display:grid;
+    grid-template-columns:64px 1fr;
+    gap:20px;
+    padding:26px 0;
+    border-top:1px solid var(--line);
+  }
+  .step:last-child{border-bottom:none;}
+  .step-num{
+    font-family:'Fraunces', serif;
+    font-size:1.9rem;
+    color:var(--orange);
+    font-weight:600;
+  }
+  .step h3{font-size:1.15rem;margin-bottom:6px;color:var(--text);}
+  .step p{margin:0;font-size:0.98rem;}
+
+  /* DISTANCE METRICS */
+  .metric-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:24px;
+  }
+  @media(max-width:720px){.metric-grid{grid-template-columns:1fr;}}
+  .metric-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:26px 26px 22px;
+  }
+  .metric-card h3{font-size:1.05rem;margin-bottom:6px;}
+  .metric-card p{font-size:0.92rem;margin-bottom:16px;}
+  .metric-card svg{width:100%;height:auto;display:block;margin-bottom:14px;}
+  .formula{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.95rem;
+    color:var(--gold);
+    background:var(--panel-2);
+    padding:10px 14px;
+    border-radius:3px;
+    display:inline-block;
+  }
+
+  /* INTERACTIVE */
+  .lab{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:32px;
+  }
+  .lab-grid{
+    display:grid;
+    grid-template-columns:1.15fr 0.85fr;
+    gap:32px;
+    align-items:start;
+  }
+  @media(max-width:800px){.lab-grid{grid-template-columns:1fr;}}
+
+  .plot-wrap svg{width:100%;height:auto;background:var(--panel-2);border-radius:4px;}
+  .axis-label{font-size:11px;fill:var(--text-dim);font-family:'Inter',sans-serif;}
+
+  .controls{display:flex;flex-direction:column;gap:22px;}
+  .k-control{
+    background:var(--panel-2);
+    border-radius:4px;
+    padding:20px 22px;
+  }
+  .k-control label{
+    display:flex;
+    justify-content:space-between;
+    font-size:0.9rem;
+    color:var(--text-dim);
+    margin-bottom:12px;
+  }
+  .k-control label b{
+    color:var(--gold);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1rem;
+  }
+  input[type=range]{
+    width:100%;
+    accent-color:var(--gold);
+  }
+
+  .verdict{
+    border-radius:4px;
+    padding:20px 22px;
+    transition:background 0.25s ease, border-color 0.25s ease;
+    border:1px solid var(--line);
+  }
+  .verdict .vlabel{font-size:0.82rem;color:var(--text-dim);margin-bottom:6px;}
+  .verdict .vresult{
+    font-family:'Fraunces', serif;
+    font-size:1.5rem;
+    font-weight:600;
+  }
+  .verdict .vsub{font-size:0.85rem;margin-top:6px;color:var(--text-dim);}
+
+  .vote-bars{display:flex;flex-direction:column;gap:8px;}
+  .vote-row{display:grid;grid-template-columns:70px 1fr 26px;align-items:center;gap:10px;font-size:0.85rem;}
+  .vote-track{height:10px;background:var(--panel);border-radius:6px;overflow:hidden;}
+  .vote-fill{height:100%;border-radius:6px;transition:width 0.25s ease;}
+
+  table.data-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.88rem;
+    margin-top:18px;
+  }
+  table.data-table th, table.data-table td{
+    text-align:left;
+    padding:9px 10px;
+    border-bottom:1px solid var(--line);
+    color:var(--text-dim);
+  }
+  table.data-table th{color:var(--text);font-weight:500;font-size:0.8rem;}
+  table.data-table td.dist{font-family:'IBM Plex Mono', monospace;color:var(--text);}
+  table.data-table tr.active td{color:var(--text);}
+  .swatch{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:7px;}
+
+  .cluster-notes{display:flex;flex-direction:column;gap:0;margin-top:28px;}
+  .cnote{display:grid;grid-template-columns:16px 1fr;gap:14px;padding:18px 0;border-top:1px solid var(--line);align-items:start;}
+  .cnote:last-child{padding-bottom:0;}
+  .cdot{width:11px;height:11px;border-radius:50%;margin-top:5px;}
+  .cnote div{font-size:0.92rem;color:var(--text-dim);}
+  .cnote b{color:var(--text);}
+
+  footer{padding:56px 0 90px;}
+  footer p{font-size:0.9rem;}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker"><b>Supervised Learning</b> · Classification &amp; Regression</div>
+    <h1>K-Nearest Neighbors</h1>
+    <p class="lede">อัลกอริทึมที่ไม่ได้ "เรียนรู้กฎ" ใด ๆ ล่วงหน้า แต่ตัดสินใจทุกครั้งด้วยการมองไปรอบตัวข้อมูลใหม่ แล้วถามเพื่อนบ้านที่ใกล้ที่สุด K คน ว่าพวกเขาเป็นกลุ่มไหน — เสียงส่วนใหญ่ชนะ</p>
+    <div class="fruit-row">
+      <span class="dot" style="background:var(--orange)"></span><span>ส้ม (Orange)</span>
+      <span class="dot" style="background:var(--apple)"></span><span>แอปเปิ้ล (Apple)</span>
+      <span class="dot" style="background:var(--gold);border:1px dashed var(--gold)"></span><span>ผลไม้ปริศนา</span>
+    </div>
+  </div>
+</header>
+
+<section id="how">
+  <div class="wrap">
+    <div class="eyebrow">หลักการทำงาน</div>
+    <h2>สี่ขั้นตอนของ KNN</h2>
+    <p class="section-lede narrow">ไม่มีขั้นตอน "ฝึกโมเดล" แบบอัลกอริทึมอื่น — KNN เก็บข้อมูลเดิมไว้ทั้งหมด แล้วคำนวณใหม่ทุกครั้งที่มีข้อมูลใหม่เข้ามา</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div>
+          <h3>กำหนดค่า K</h3>
+          <p>เลือกจำนวนเพื่อนบ้านที่จะปรึกษา เช่น K=3 หรือ K=5 นิยมใช้เลขคี่เพื่อป้องกันผลโหวตเสมอกัน</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div>
+          <h3>วัดระยะทาง</h3>
+          <p>คำนวณระยะห่างระหว่างข้อมูลใหม่กับข้อมูลเดิมทุกจุดในระบบ ด้วยสูตรวัดระยะ เช่น Euclidean Distance</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div>
+          <h3>คัดเลือกเพื่อนบ้าน</h3>
+          <p>เรียงลำดับระยะทางจากน้อยไปมาก แล้วเลือกข้อมูลที่ใกล้ที่สุดตามจำนวน K ที่ตั้งไว้</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div>
+          <h3>ทำนายผลลัพธ์</h3>
+          <p><b style="color:var(--text)">จำแนกประเภท (Classification):</b> ใช้เสียงส่วนใหญ่ของเพื่อนบ้าน K ตัว &nbsp;·&nbsp; <b style="color:var(--text)">พยากรณ์ค่า (Regression):</b> หาค่าเฉลี่ยของเพื่อนบ้าน K ตัวนั้น</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="distance">
+  <div class="wrap">
+    <div class="eyebrow">การวัดระยะทาง</div>
+    <h2>Distance Metrics</h2>
+    <p class="section-lede narrow">"ใกล้" หรือ "ไกล" วัดได้หลายแบบ สองแบบที่พบบ่อยที่สุดให้ผลต่างกันอย่างมีนัยสำคัญ</p>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <h3>Euclidean Distance</h3>
+        <p>ระยะทางเส้นตรงตามแนวเรขาคณิต แบบปกติในพื้นที่ n มิติ — นิยมใช้มากที่สุด</p>
+        <svg viewBox="0 0 260 130">
+          <line x1="30" y1="100" x2="220" y2="30" stroke="var(--gold)" stroke-width="2"/>
+          <circle cx="30" cy="100" r="5" fill="var(--apple)"/>
+          <circle cx="220" cy="30" r="5" fill="var(--orange)"/>
+          <line x1="30" y1="100" x2="220" y2="100" stroke="#3a4653" stroke-dasharray="3 3"/>
+          <line x1="220" y1="100" x2="220" y2="30" stroke="#3a4653" stroke-dasharray="3 3"/>
+        </svg>
+        <div class="formula">d(x,xᵢ) = √Σ(xⱼ − xᵢⱼ)²</div>
+      </div>
+      <div class="metric-card">
+        <h3>Manhattan Distance</h3>
+        <p>เดินตามแนวแกนตั้ง-แนวนอนเท่านั้น (L1-norm / Taxicab) รวมระยะห่างสัมบูรณ์ทีละมิติ</p>
+        <svg viewBox="0 0 260 130">
+          <polyline points="30,100 220,100 220,30" fill="none" stroke="var(--gold)" stroke-width="2"/>
+          <circle cx="30" cy="100" r="5" fill="var(--apple)"/>
+          <circle cx="220" cy="30" r="5" fill="var(--orange)"/>
+        </svg>
+        <div class="formula">d(x,y) = Σ|xᵢ − yᵢ|</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="lab">
+  <div class="wrap">
+    <div class="eyebrow">ลองด้วยตัวเอง</div>
+    <h2>ผลไม้ปริศนาคือ ส้ม หรือ แอปเปิ้ล?</h2>
+    <p class="section-lede narrow">ข้อมูลฝึก 4 จุด วัดจาก น้ำหนัก (กรัม) และ ความขรุขระ (คะแนน 0–10) ผลไม้ปริศนา X หนัก 150 กรัม ขรุขระ 6 — ลากตัวเลื่อนเพื่อเปลี่ยนค่า K แล้วดูว่าใครโหวตชนะ</p>
+
+    <div class="lab">
+      <div class="lab-grid">
+        <div class="plot-wrap">
+          <svg viewBox="0 0 640 420" id="plot">
+            <!-- axes -->
+            <line x1="60" y1="360" x2="600" y2="360" stroke="#3a4653"/>
+            <line x1="60" y1="30" x2="60" y2="360" stroke="#3a4653"/>
+            <text x="330" y="400" text-anchor="middle" class="axis-label">น้ำหนัก (กรัม) →</text>
+            <text x="24" y="195" text-anchor="middle" class="axis-label" transform="rotate(-90 24 195)">ความขรุขระ →</text>
+            <!-- gridlines with values -->
+            <g id="ticks"></g>
+            <!-- K boundary circle drawn by JS -->
+            <g id="k-boundary"></g>
+            <!-- connecting lines drawn by JS -->
+            <g id="conn-lines"></g>
+            <!-- points drawn by JS -->
+            <g id="points"></g>
+          </svg>
+        </div>
+
+        <div class="controls">
+          <div class="k-control">
+            <label>จำนวนเพื่อนบ้าน (K) <b id="kval">3</b></label>
+            <input type="range" min="1" max="4" step="1" value="3" id="kslider">
+          </div>
+
+          <div class="verdict" id="verdict">
+            <div class="vlabel">ผลการทำนาย</div>
+            <div class="vresult" id="vresult">—</div>
+            <div class="vsub" id="vsub"></div>
+          </div>
+
+          <div class="vote-bars" id="votebars"></div>
+        </div>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr><th>จุดข้อมูล</th><th>ประเภท</th><th>น้ำหนัก</th><th>ขรุขระ</th><th>ระยะห่างจาก X</th></tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="cluster-notes">
+      <div class="cnote">
+        <span class="cdot" style="background:var(--apple)"></span>
+        <div><b>Apple (กลุ่มแอปเปิ้ล):</b> กลุ่มข้อมูลผลไม้ที่มีน้ำหนักค่อนข้างมาก (160–170 กรัม) และมีระดับความขรุขระของผิวต่ำ (ระดับ 2–3) ซึ่งเป็นลักษณะเฉพาะของแอปเปิ้ลผิวเรียบ</div>
+      </div>
+      <div class="cnote">
+        <span class="cdot" style="background:var(--orange)"></span>
+        <div><b>Orange (กลุ่มส้ม):</b> กลุ่มข้อมูลผลไม้ที่มีน้ำหนักปานกลาง (120–140 กรัม) และมีระดับความขรุขระของผิวสูง (ระดับ 7–8) ซึ่งเป็นลักษณะเฉพาะของส้มที่มีเปลือกขรุขระ</div>
+      </div>
+      <div class="cnote">
+        <span class="cdot" style="background:var(--gold)"></span>
+        <div><b>Unknown Fruit (ผลไม้ปริศนา):</b> ข้อมูลตำแหน่งอ้างอิงทดสอบ (น้ำหนัก 150 กรัม, ความขรุขระ 6) สำหรับทำนายผล โดยระบบคำนวณระยะทางไปยังเพื่อนบ้านใกล้ที่สุด K=3 ลำดับ และจัดอยู่ในกลุ่มแอปเปิ้ลตามเสียงส่วนใหญ่</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap narrow">
+    <p>สรุปสั้น ๆ: KNN ไม่สร้างสมการทำนายไว้ล่วงหน้า มันแค่ "จำ" ข้อมูลเดิมทั้งหมด แล้วตัดสินใจใหม่ทุกครั้งจากเพื่อนบ้านที่ใกล้ที่สุด — เรียบง่าย ตีความง่าย แต่ต้องคำนวณระยะทางใหม่ทุกครั้งที่มีข้อมูลใหม่เข้ามา</p>
+  </div>
+</footer>
+
+<script>
+  // Training data (from slide example)
+  const points = [
+    { id:'A', label:'ส้ม',     type:'orange', w:120, r:8 },
+    { id:'B', label:'ส้ม',     type:'orange', w:140, r:7 },
+    { id:'C', label:'แอปเปิ้ล', type:'apple',  w:170, r:2 },
+    { id:'D', label:'แอปเปิ้ล', type:'apple',  w:160, r:3 },
+  ];
+  const X = { w:150, r:6 };
+
+  const COLORS = { orange:'#e8833a', apple:'#7fa860', gold:'#e7c465' };
+
+  // compute euclidean distances
+  points.forEach(p=>{
+    p.dist = Math.sqrt(Math.pow(X.w-p.w,2) + Math.pow(X.r-p.r,2));
+  });
+  const sorted = [...points].sort((a,b)=>a.dist-b.dist);
+
+  // plot scaling: weight 100-180 -> x 90..580 ; roughness 0-10 -> y 340..50 (inverted)
+  const wMin=95, wMax=180, rMin=0, rMax=10;
+  const xPix = w => 90 + (w-wMin)/(wMax-wMin) * (580-90);
+  const yPix = r => 340 - (r-rMin)/(rMax-rMin) * (340-50);
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const ticksG = document.getElementById('ticks');
+  const pointsG = document.getElementById('points');
+  const connG = document.getElementById('conn-lines');
+  const boundaryG = document.getElementById('k-boundary');
+  const pxPerUnitW = (580-90)/(wMax-wMin);
+  const pxPerUnitR = (340-50)/(rMax-rMin);
+
+  // ticks
+  [100,120,140,160,180].forEach(w=>{
+    const x = xPix(w);
+    const l = document.createElementNS(svgNS,'line');
+    l.setAttribute('x1',x); l.setAttribute('x2',x);
+    l.setAttribute('y1',356); l.setAttribute('y2',360);
+    l.setAttribute('stroke','#3a4653');
+    ticksG.appendChild(l);
+    const t = document.createElementNS(svgNS,'text');
+    t.setAttribute('x',x); t.setAttribute('y',376);
+    t.setAttribute('text-anchor','middle'); t.setAttribute('class','axis-label');
+    t.textContent = w;
+    ticksG.appendChild(t);
+  });
+  [0,2,4,6,8,10].forEach(r=>{
+    const y = yPix(r);
+    const t = document.createElementNS(svgNS,'text');
+    t.setAttribute('x',48); t.setAttribute('y',y+4);
+    t.setAttribute('text-anchor','end'); t.setAttribute('class','axis-label');
+    t.textContent = r;
+    ticksG.appendChild(t);
+  });
+
+  // draw training points
+  points.forEach(p=>{
+    const g = document.createElementNS(svgNS,'g');
+    g.setAttribute('id','pt-'+p.id);
+    const c = document.createElementNS(svgNS,'circle');
+    c.setAttribute('cx', xPix(p.w));
+    c.setAttribute('cy', yPix(p.r));
+    c.setAttribute('r', 9);
+    c.setAttribute('fill', COLORS[p.type]);
+    c.setAttribute('stroke', '#12181f');
+    c.setAttribute('stroke-width', 2);
+    g.appendChild(c);
+    const label = document.createElementNS(svgNS,'text');
+    label.setAttribute('x', xPix(p.w));
+    label.setAttribute('y', yPix(p.r) - 16);
+    label.setAttribute('text-anchor','middle');
+    label.setAttribute('fill', '#eceef1');
+    label.setAttribute('font-size', '12');
+    label.setAttribute('font-family', 'IBM Plex Mono, monospace');
+    label.textContent = p.id;
+    g.appendChild(label);
+    pointsG.appendChild(g);
+  });
+
+  // draw X
+  const xg = document.createElementNS(svgNS,'g');
+  const xc = document.createElementNS(svgNS,'circle');
+  xc.setAttribute('cx', xPix(X.w));
+  xc.setAttribute('cy', yPix(X.r));
+  xc.setAttribute('r', 10);
+  xc.setAttribute('fill', '#12181f');
+  xc.setAttribute('stroke', COLORS.gold);
+  xc.setAttribute('stroke-width', 2.5);
+  xc.setAttribute('stroke-dasharray','3 2');
+  xg.appendChild(xc);
+  const xlabel = document.createElementNS(svgNS,'text');
+  xlabel.setAttribute('x', xPix(X.w));
+  xlabel.setAttribute('y', yPix(X.r) - 18);
+  xlabel.setAttribute('text-anchor','middle');
+  xlabel.setAttribute('fill', COLORS.gold);
+  xlabel.setAttribute('font-size', '12');
+  xlabel.setAttribute('font-family', 'IBM Plex Mono, monospace');
+  xlabel.textContent = 'X (ปริศนา)';
+  xg.appendChild(xlabel);
+  pointsG.appendChild(xg);
+
+  const tableBody = document.getElementById('table-body');
+  const kslider = document.getElementById('kslider');
+  const kval = document.getElementById('kval');
+  const vresult = document.getElementById('vresult');
+  const vsub = document.getElementById('vsub');
+  const verdict = document.getElementById('verdict');
+  const votebars = document.getElementById('votebars');
+
+  function render(){
+    const K = parseInt(kslider.value);
+    kval.textContent = K;
+    const neighbors = sorted.slice(0,K);
+
+    // K boundary — ellipse whose radii reflect the Euclidean distance to the
+    // farthest of the K chosen neighbors, converted into this plot's (unequal) pixel scale
+    boundaryG.innerHTML = '';
+    const kthDist = neighbors[neighbors.length-1].dist;
+    const rx = kthDist * pxPerUnitW;
+    const ry = kthDist * pxPerUnitR;
+    const ell = document.createElementNS(svgNS,'ellipse');
+    ell.setAttribute('cx', xPix(X.w));
+    ell.setAttribute('cy', yPix(X.r));
+    ell.setAttribute('rx', rx);
+    ell.setAttribute('ry', ry);
+    ell.setAttribute('fill', 'none');
+    ell.setAttribute('stroke', '#9aa7b4');
+    ell.setAttribute('stroke-width', 1.5);
+    ell.setAttribute('stroke-dasharray', '5 4');
+    boundaryG.appendChild(ell);
+
+    // connecting lines
+    connG.innerHTML = '';
+    neighbors.forEach(p=>{
+      const l = document.createElementNS(svgNS,'line');
+      l.setAttribute('x1', xPix(X.w)); l.setAttribute('y1', yPix(X.r));
+      l.setAttribute('x2', xPix(p.w)); l.setAttribute('y2', yPix(p.r));
+      l.setAttribute('stroke', COLORS[p.type]);
+      l.setAttribute('stroke-width', 1.5);
+      l.setAttribute('stroke-opacity', 0.6);
+      connG.appendChild(l);
+    });
+
+    // point emphasis
+    points.forEach(p=>{
+      const g = document.getElementById('pt-'+p.id);
+      const isNeighbor = neighbors.some(n=>n.id===p.id);
+      g.style.opacity = isNeighbor ? 1 : 0.3;
+    });
+
+    // table
+    tableBody.innerHTML = '';
+    sorted.forEach(p=>{
+      const isNeighbor = neighbors.some(n=>n.id===p.id);
+      const tr = document.createElement('tr');
+      if(isNeighbor) tr.classList.add('active');
+      tr.style.opacity = isNeighbor ? 1 : 0.45;
+      tr.innerHTML = `<td><span class="swatch" style="background:${COLORS[p.type]}"></span>${p.id}</td>
+        <td>${p.label}</td><td>${p.w}</td><td>${p.r}</td>
+        <td class="dist">${p.dist.toFixed(2)}</td>`;
+      tableBody.appendChild(tr);
+    });
+
+    // vote tally
+    const oranges = neighbors.filter(n=>n.type==='orange').length;
+    const apples = neighbors.filter(n=>n.type==='apple').length;
+    const total = neighbors.length;
+
+    votebars.innerHTML = `
+      <div class="vote-row">
+        <span>ส้ม</span>
+        <div class="vote-track"><div class="vote-fill" style="width:${(oranges/total*100)}%;background:${COLORS.orange}"></div></div>
+        <span>${oranges}</span>
+      </div>
+      <div class="vote-row">
+        <span>แอปเปิ้ล</span>
+        <div class="vote-track"><div class="vote-fill" style="width:${(apples/total*100)}%;background:${COLORS.apple}"></div></div>
+        <span>${apples}</span>
+      </div>
+    `;
+
+    if(oranges === apples){
+      vresult.textContent = 'เสียงเสมอกัน';
+      vresult.style.color = COLORS.gold;
+      vsub.textContent = `K=${K} ให้ผลโหวตเท่ากัน (${oranges}-${apples}) — นี่คือเหตุผลที่นิยมเลือก K เป็นเลขคี่`;
+      verdict.style.borderColor = COLORS.gold;
+    } else {
+      const winner = oranges > apples ? 'ส้ม' : 'แอปเปิ้ล';
+      const winColor = oranges > apples ? COLORS.orange : COLORS.apple;
+      vresult.textContent = winner;
+      vresult.style.color = winColor;
+      vsub.textContent = `จากเพื่อนบ้าน ${K} ตัวที่ใกล้ที่สุด: ${oranges} เสียงส้ม vs ${apples} เสียงแอปเปิ้ล`;
+      verdict.style.borderColor = winColor;
+    }
+  }
+
+  kslider.addEventListener('input', render);
+  render();
+</script>
+
+</body>
+</html>

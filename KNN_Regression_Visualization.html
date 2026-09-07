@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KNN Regression — ทำนายค่าต่อเนื่องจากเพื่อนบ้าน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0d1226;
+    --panel: #161c37;
+    --panel-2: #1c2444;
+    --line: #2b3358;
+    --text: #eceef4;
+    --text-dim: #9aa2c0;
+    --blue: #5b8cff;
+    --violet: #9b7cf0;
+    --gold: #f2b84b;
+    --line-fit: #f2b84b;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;line-height:1.65;}
+  .wrap{max-width:920px;margin:0 auto;padding:0 28px;}
+  .narrow{max-width:660px;}
+  h1,h2,h3{font-family:'Fraunces', serif;font-weight:600;letter-spacing:-0.01em;margin:0;}
+  p{color:var(--text-dim);margin:0.6em 0;}
+
+  .hero{
+    padding:120px 0 90px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+  }
+  .hero::before{
+    content:"";position:absolute;right:-140px;top:-180px;width:460px;height:460px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, rgba(91,140,255,0.20), transparent 65%);
+  }
+  .hero::after{
+    content:"";position:absolute;left:-160px;bottom:-220px;width:460px;height:460px;border-radius:50%;
+    background:radial-gradient(circle at 60% 60%, rgba(155,124,240,0.18), transparent 65%);
+  }
+  .kicker{color:var(--text-dim);font-size:0.95rem;margin-bottom:18px;position:relative;}
+  .kicker b{color:var(--blue);font-weight:600;}
+  .hero h1{font-size:clamp(2.2rem,5vw,3.6rem);line-height:1.08;max-width:15ch;position:relative;}
+  .hero p.lede{font-size:1.12rem;max-width:54ch;margin-top:24px;color:#c4c9e0;position:relative;}
+
+  section{padding:76px 0;border-bottom:1px solid var(--line);}
+  .eyebrow{font-size:0.85rem;color:var(--text-dim);margin-bottom:10px;}
+  h2{font-size:clamp(1.5rem,3vw,2rem);margin-bottom:8px;}
+  .section-lede{max-width:58ch;margin-bottom:40px;}
+
+  .concept-list{display:flex;flex-direction:column;gap:0;}
+  .concept{display:grid;grid-template-columns:170px 1fr;gap:20px;padding:20px 0;border-top:1px solid var(--line);}
+  .concept:last-child{border-bottom:none;}
+  .concept .tag{font-family:'IBM Plex Mono', monospace;font-size:0.78rem;color:var(--violet);padding-top:2px;}
+  .concept p{margin:0;font-size:0.96rem;color:#c7cce4;}
+  .concept b{color:var(--text);}
+
+  .steps{display:flex;flex-direction:column;gap:0;}
+  .step{display:grid;grid-template-columns:64px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--line);}
+  .step:last-child{border-bottom:none;}
+  .step-num{font-family:'Fraunces', serif;font-size:1.9rem;color:var(--blue);font-weight:600;}
+  .step h3{font-size:1.1rem;margin-bottom:6px;color:var(--text);}
+  .step p{margin:0;font-size:0.96rem;}
+
+  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  @media(max-width:720px){.metric-grid{grid-template-columns:1fr;}}
+  .metric-card{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:24px 24px 22px;}
+  .metric-card h3{font-size:1rem;margin-bottom:8px;}
+  .metric-card p{font-size:0.9rem;margin-bottom:14px;}
+  .formula{font-family:'IBM Plex Mono', monospace;font-size:1rem;color:var(--gold);background:var(--panel-2);padding:12px 16px;border-radius:4px;display:block;text-align:center;}
+
+  .eval-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  @media(max-width:780px){.eval-grid{grid-template-columns:1fr;}}
+  .eval-card{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:22px;}
+  .eval-card .ename{font-family:'IBM Plex Mono',monospace;color:var(--blue);font-size:0.85rem;margin-bottom:8px;}
+  .eval-card p{font-size:0.88rem;margin:0;}
+
+  /* LAB */
+  .lab{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:32px;}
+  .lab-grid{display:grid;grid-template-columns:1.2fr 0.8fr;gap:30px;align-items:start;}
+  @media(max-width:820px){.lab-grid{grid-template-columns:1fr;}}
+  .plot-wrap svg{width:100%;height:auto;background:var(--panel-2);border-radius:4px;}
+  .axis-label{font-size:11px;fill:var(--text-dim);font-family:'Inter',sans-serif;}
+
+  .controls{display:flex;flex-direction:column;gap:20px;}
+  .ctrl-block{background:var(--panel-2);border-radius:4px;padding:18px 20px;}
+  .ctrl-block label{display:flex;justify-content:space-between;font-size:0.88rem;color:var(--text-dim);margin-bottom:10px;}
+  .ctrl-block label b{color:var(--gold);font-family:'IBM Plex Mono',monospace;font-size:0.95rem;}
+  input[type=range]{width:100%;accent-color:var(--gold);}
+
+  .toggle-row{display:flex;gap:8px;}
+  .toggle-btn{
+    flex:1;padding:9px 8px;font-size:0.82rem;text-align:center;border-radius:4px;
+    border:1px solid var(--line);background:var(--panel);color:var(--text-dim);cursor:pointer;
+    font-family:'Inter',sans-serif;transition:all 0.15s ease;
+  }
+  .toggle-btn.active{background:var(--blue);border-color:var(--blue);color:#0d1226;font-weight:600;}
+
+  .verdict{border-radius:4px;padding:18px 20px;border:1px solid var(--line);transition:border-color 0.2s ease;}
+  .verdict .vlabel{font-size:0.8rem;color:var(--text-dim);margin-bottom:6px;}
+  .verdict .vresult{font-family:'Fraunces', serif;font-size:1.5rem;font-weight:600;color:var(--gold);}
+  .verdict .vsub{font-size:0.83rem;margin-top:8px;color:var(--text-dim);}
+
+  .fit-note{font-size:0.82rem;padding:12px 14px;border-radius:4px;background:var(--panel-2);color:var(--text-dim);}
+  .fit-note b{color:var(--text);}
+
+  footer{padding:56px 0 90px;}
+  footer p{font-size:0.9rem;}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker"><b>Non-Parametric</b> · Instance-Based / Lazy Learning</div>
+    <h1>KNN Regression</h1>
+    <p class="lede">แทนที่จะจำแนกกลุ่ม KNN Regression ทำนาย "ค่าตัวเลข" — โดยมองไปยังเพื่อนบ้านที่ใกล้ที่สุด K ตัว แล้วหาค่าเฉลี่ยของพวกเขามาเป็นคำตอบ ไม่มีสมการโมเดลตายตัว มีแต่ข้อมูลฝึกฝนที่รอถูกเรียกใช้ทุกครั้งที่ทำนาย</p>
+  </div>
+</header>
+
+<section id="concept">
+  <div class="wrap">
+    <div class="eyebrow">แนวคิดหลัก</div>
+    <h2>KNN Regression คืออะไร</h2>
+    <div class="concept-list">
+      <div class="concept">
+        <div class="tag">Non-Parametric</div>
+        <p>ไม่ตั้ง <b>ข้อสมมติฐาน</b> ใด ๆ เกี่ยวกับการกระจายตัวของชุดข้อมูลล่วงหน้า</p>
+      </div>
+      <div class="concept">
+        <div class="tag">Lazy Learning</div>
+        <p>ไม่สร้างสมการโมเดลแบบคงที่ แต่ <b>เก็บข้อมูลฝึกฝนไว้ทั้งหมด</b> แล้วคำนวณตอนทำนายผลจริง</p>
+      </div>
+      <div class="concept">
+        <div class="tag">การทำนาย</div>
+        <p>ประมาณค่าเป้าหมายเชิงตัวเลข โดย <b>หาค่าเฉลี่ยของเพื่อนบ้านใกล้ที่สุด K ตัว</b></p>
+      </div>
+      <div class="concept">
+        <div class="tag">หลักการ</div>
+        <p>จุดข้อมูลที่มี <b>ลักษณะคล้ายกันจะอยู่ใกล้กัน</b> ในสเปซข้อมูล — ใกล้กันแปลว่าน่าจะมีค่าใกล้เคียงกันด้วย</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="eyebrow">ขั้นตอนการทำงาน</div>
+    <h2>สี่ขั้นตอนของ KNN Regression</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div><h3>กำหนดค่า K</h3><p>เลือกจำนวนเพื่อนบ้านที่ต้องการพิจารณา</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div><h3>คำนวณระยะห่าง</h3><p>วัดระยะจากจุดข้อมูลทดสอบ (Test Point) ไปยังข้อมูลสอน (Training Points) ทั้งหมด</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div><h3>คัดเลือก K เพื่อนบ้าน</h3><p>จัดลำดับและเลือก K จุดที่มีระยะห่างสั้นที่สุด</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div><h3>ทำนายผลลัพธ์</h3><p>นำค่าเป้าหมาย (y) ของ K เพื่อนบ้านมาหาค่าเฉลี่ยเพื่อเป็นค่าพยากรณ์</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="formulas">
+  <div class="wrap">
+    <div class="eyebrow">สูตรการคำนวณ</div>
+    <h2>Unweighted vs Weighted</h2>
+    <p class="section-lede narrow">แบบพื้นฐานให้ทุกเพื่อนบ้านมีน้ำหนักเท่ากัน ส่วนแบบถ่วงน้ำหนักให้ความสำคัญกับเพื่อนบ้านที่ "ใกล้กว่า" มากกว่า</p>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <h3>Euclidean Distance</h3>
+        <p>การวัดระยะทางเส้นตรงมาตรฐานในสเปซยูคลิด</p>
+        <span class="formula">d = √Σ(xᵢ − yᵢ)²</span>
+      </div>
+      <div class="metric-card">
+        <h3>Unweighted Prediction</h3>
+        <p>ค่าพยากรณ์คือค่าเฉลี่ยธรรมดาของ K เพื่อนบ้านที่ใกล้ที่สุด</p>
+        <span class="formula">ŷ = (1/K) Σ yᵢ</span>
+      </div>
+      <div class="metric-card">
+        <h3>น้ำหนัก (Weight)</h3>
+        <p>ให้ความสำคัญแก่เพื่อนบ้านที่อยู่ใกล้กว่ามากกว่าเพื่อนบ้านที่อยู่ไกลออกไป</p>
+        <span class="formula">wᵢ = 1 / d(x, xᵢ)</span>
+      </div>
+      <div class="metric-card">
+        <h3>Weighted Prediction</h3>
+        <p>ค่าทำนายจากการถ่วงน้ำหนักด้วยส่วนกลับของระยะทาง</p>
+        <span class="formula">ŷ = Σwᵢyᵢ / Σwᵢ</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="lab">
+  <div class="wrap">
+    <div class="eyebrow">ลองด้วยตัวเอง</div>
+    <h2>ทำนายราคาบ้านจากขนาด</h2>
+    <p class="section-lede narrow">ข้อมูลฝึก: ขนาดบ้าน (ตร.ฟุต) เทียบราคา (USD) — เลื่อนหาบ้านทดสอบ ปรับค่า K และสลับโหมดถ่วงน้ำหนัก ดูเส้นทำนาย (step-wise curve) เปลี่ยนไปตามค่าที่ตั้ง</p>
+
+    <div class="lab">
+      <div class="lab-grid">
+        <div class="plot-wrap">
+          <svg viewBox="0 0 640 420" id="plot">
+            <line x1="60" y1="360" x2="600" y2="360" stroke="#3a4270"/>
+            <line x1="60" y1="30" x2="60" y2="360" stroke="#3a4270"/>
+            <text x="330" y="400" text-anchor="middle" class="axis-label">ขนาดบ้าน (ตร.ฟุต) →</text>
+            <text x="20" y="195" text-anchor="middle" class="axis-label" transform="rotate(-90 20 195)">ราคา (USD) →</text>
+            <g id="ticks"></g>
+            <g id="fit-curve"></g>
+            <g id="conn-lines"></g>
+            <g id="points"></g>
+            <g id="test-point"></g>
+          </svg>
+        </div>
+
+        <div class="controls">
+          <div class="ctrl-block">
+            <label>ขนาดบ้านทดสอบ <b id="tval">1900 ตร.ฟุต</b></label>
+            <input type="range" min="600" max="4100" step="10" value="1900" id="tslider">
+          </div>
+          <div class="ctrl-block">
+            <label>จำนวนเพื่อนบ้าน (K) <b id="kval">3</b></label>
+            <input type="range" min="1" max="9" step="1" value="3" id="kslider">
+          </div>
+          <div class="ctrl-block">
+            <label>โหมดคำนวณ</label>
+            <div class="toggle-row">
+              <div class="toggle-btn active" data-mode="unweighted">Unweighted</div>
+              <div class="toggle-btn" data-mode="weighted">Weighted</div>
+            </div>
+          </div>
+
+          <div class="verdict">
+            <div class="vlabel">ราคาที่ทำนาย</div>
+            <div class="vresult" id="vresult">—</div>
+            <div class="vsub" id="vsub"></div>
+          </div>
+
+          <div class="fit-note" id="fitnote"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="eval">
+  <div class="wrap">
+    <div class="eyebrow">การประเมินผล</div>
+    <h2>Evaluation Metrics</h2>
+    <p class="section-lede narrow">ใช้วัดว่าค่าที่ทำนายได้ ห่างจากค่าจริงมากแค่ไหน</p>
+    <div class="eval-grid">
+      <div class="eval-card">
+        <div class="ename">MAE</div>
+        <p>ค่าเฉลี่ยของความคลาดเคลื่อนสัมบูรณ์ — วัดความผิดพลาดเฉลี่ยโดยไม่คิดทิศทาง</p>
+      </div>
+      <div class="eval-card">
+        <div class="ename">RMSE</div>
+        <p>รากที่สองของค่าเฉลี่ยความคลาดเคลื่อนกำลังสอง — ให้ความสำคัญกับข้อผิดพลาดขนาดใหญ่ (outliers)</p>
+      </div>
+      <div class="eval-card">
+        <div class="ename">R² Score</div>
+        <p>สัดส่วนความแปรปรวนของข้อมูลที่โมเดลอธิบายได้ มีค่าตั้งแต่ 0 ถึง 1 — ยิ่งใกล้ 1 ยิ่งแม่นยำ</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap narrow">
+    <p>สรุปสั้น ๆ: การเลือก K มีผลโดยตรงต่อคุณภาพการทำนาย — K เล็กเกินไปไวต่อสัญญาณรบกวนจนเกิด overfitting เส้นทำนายผันผวนมาก ส่วน K ใหญ่เกินไปจะราบเรียบจนทำนายได้แค่ค่าเฉลี่ยรวม เกิด underfitting วิธีแก้คือใช้ cross-validation หาค่า K ที่ให้ความคลาดเคลื่อนต่ำที่สุด</p>
+  </div>
+</footer>
+
+<script>
+  // Training data: house size (sqft) vs price (USD) — illustrative dataset
+  const points = [
+    {w:600,r:150000},{w:650,r:175000},{w:700,r:160000},{w:750,r:210000},
+    {w:800,r:190000},{w:850,r:225000},{w:900,r:205000},{w:950,r:265000},
+    {w:1000,r:240000},{w:1050,r:300000},{w:1100,r:285000},{w:1150,r:355000},
+    {w:1200,r:265000},{w:1300,r:290000},{w:1400,r:270000},{w:1500,r:320000},
+    {w:1600,r:300000},{w:1700,r:335000},{w:1800,r:310000},{w:1900,r:345000},
+    {w:2100,r:405000},{w:2300,r:470000},{w:2500,r:390000},{w:2700,r:420000},
+    {w:3000,r:445000},{w:3200,r:470000},{w:3500,r:410000},{w:3800,r:565000},
+    {w:4100,r:540000}
+  ];
+  const N = points.length;
+
+  const COLOR = { pt:'#5b8cff', neighbor:'#f2b84b', fit:'#9b7cf0', test:'#f2b84b' };
+
+  const wMin=500, wMax=4200, rMin=100000, rMax=650000;
+  const xPix = w => 60 + (w-wMin)/(wMax-wMin) * (600-60);
+  const yPix = r => 360 - (r-rMin)/(rMax-rMin) * (360-40);
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const ticksG = document.getElementById('ticks');
+  const pointsG = document.getElementById('points');
+  const connG = document.getElementById('conn-lines');
+  const fitG = document.getElementById('fit-curve');
+  const testG = document.getElementById('test-point');
+
+  [1000,2000,3000,4000].forEach(w=>{
+    const x = xPix(w);
+    const l = document.createElementNS(svgNS,'line');
+    l.setAttribute('x1',x); l.setAttribute('x2',x); l.setAttribute('y1',356); l.setAttribute('y2',360);
+    l.setAttribute('stroke','#3a4270'); ticksG.appendChild(l);
+    const t = document.createElementNS(svgNS,'text');
+    t.setAttribute('x',x); t.setAttribute('y',376); t.setAttribute('text-anchor','middle'); t.setAttribute('class','axis-label');
+    t.textContent = w; ticksG.appendChild(t);
+  });
+  [100000,250000,400000,550000].forEach(r=>{
+    const y = yPix(r);
+    const t = document.createElementNS(svgNS,'text');
+    t.setAttribute('x',52); t.setAttribute('y',y+4); t.setAttribute('text-anchor','end'); t.setAttribute('class','axis-label');
+    t.textContent = '$'+(r/1000)+'k'; ticksG.appendChild(t);
+  });
+
+  points.forEach((p,i)=>{
+    const c = document.createElementNS(svgNS,'circle');
+    c.setAttribute('id','pt-'+i);
+    c.setAttribute('cx', xPix(p.w)); c.setAttribute('cy', yPix(p.r));
+    c.setAttribute('r', 5); c.setAttribute('fill', COLOR.pt);
+    c.setAttribute('stroke', '#0d1226'); c.setAttribute('stroke-width', 1.5);
+    pointsG.appendChild(c);
+  });
+
+  function predict(testW, K, mode){
+    const withDist = points.map(p => ({...p, dist: Math.abs(testW - p.w)}));
+    withDist.sort((a,b)=>a.dist-b.dist);
+    const neighbors = withDist.slice(0,K);
+    let pred;
+    if(mode==='unweighted'){
+      pred = neighbors.reduce((s,n)=>s+n.r,0) / K;
+    } else {
+      let wsum=0, wysum=0;
+      neighbors.forEach(n=>{
+        const w = n.dist === 0 ? 1e6 : 1/n.dist;
+        wsum += w; wysum += w*n.r;
+      });
+      pred = wysum/wsum;
+    }
+    return {pred, neighbors};
+  }
+
+  const tslider = document.getElementById('tslider');
+  const kslider = document.getElementById('kslider');
+  const tval = document.getElementById('tval');
+  const kval = document.getElementById('kval');
+  const vresult = document.getElementById('vresult');
+  const vsub = document.getElementById('vsub');
+  const fitnote = document.getElementById('fitnote');
+  const toggleBtns = document.querySelectorAll('.toggle-btn');
+  let mode = 'unweighted';
+
+  toggleBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      toggleBtns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      render();
+    });
+  });
+
+  function render(){
+    const testW = parseInt(tslider.value);
+    const K = parseInt(kslider.value);
+    tval.textContent = testW.toLocaleString() + ' ตร.ฟุต';
+    kval.textContent = K;
+
+    const {pred, neighbors} = predict(testW, K, mode);
+
+    // point emphasis + connecting lines
+    connG.innerHTML = '';
+    points.forEach((p,i)=>{
+      const el = document.getElementById('pt-'+i);
+      const isN = neighbors.some(n=>n.w===p.w && n.r===p.r);
+      el.setAttribute('fill', isN ? COLOR.neighbor : COLOR.pt);
+      el.setAttribute('r', isN ? 6.5 : 5);
+      el.style.opacity = isN ? 1 : 0.55;
+    });
+    neighbors.forEach(n=>{
+      const l = document.createElementNS(svgNS,'line');
+      l.setAttribute('x1', xPix(testW)); l.setAttribute('y1', yPix(pred));
+      l.setAttribute('x2', xPix(n.w)); l.setAttribute('y2', yPix(n.r));
+      l.setAttribute('stroke', COLOR.neighbor); l.setAttribute('stroke-width', 1.3); l.setAttribute('stroke-opacity',0.55);
+      connG.appendChild(l);
+    });
+
+    // test point + predicted marker
+    testG.innerHTML = '';
+    const vline = document.createElementNS(svgNS,'line');
+    vline.setAttribute('x1', xPix(testW)); vline.setAttribute('x2', xPix(testW));
+    vline.setAttribute('y1', 30); vline.setAttribute('y2', 360);
+    vline.setAttribute('stroke', COLOR.test); vline.setAttribute('stroke-dasharray','3 3'); vline.setAttribute('stroke-opacity', 0.5);
+    testG.appendChild(vline);
+    const predDot = document.createElementNS(svgNS,'circle');
+    predDot.setAttribute('cx', xPix(testW)); predDot.setAttribute('cy', yPix(pred));
+    predDot.setAttribute('r', 8); predDot.setAttribute('fill', '#0d1226');
+    predDot.setAttribute('stroke', COLOR.test); predDot.setAttribute('stroke-width', 2.5);
+    testG.appendChild(predDot);
+
+    // step-wise fit curve across full range, for current K & mode
+    fitG.innerHTML = '';
+    let d = '';
+    for(let w=wMin+20; w<=wMax-20; w+=15){
+      const {pred:pr} = predict(w, K, mode);
+      const x = xPix(w), y = yPix(pr);
+      d += (d==='' ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    }
+    const path = document.createElementNS(svgNS,'path');
+    path.setAttribute('d', d); path.setAttribute('fill','none');
+    path.setAttribute('stroke', COLOR.fit); path.setAttribute('stroke-width', 2); path.setAttribute('stroke-opacity', 0.85);
+    fitG.appendChild(path);
+
+    vresult.textContent = '$' + Math.round(pred).toLocaleString();
+    vsub.textContent = `จากเพื่อนบ้าน ${K} หลังที่ใกล้ที่สุด (${mode === 'unweighted' ? 'ค่าเฉลี่ยธรรมดา' : 'ถ่วงน้ำหนักตามระยะทาง'})`;
+
+    let note;
+    if(K <= 2){
+      note = `<b>K=${K} เล็กมาก</b> — โมเดลไวต่อสัญญาณรบกวน เส้นทำนายผันผวนสูง เสี่ยง Overfitting`;
+    } else if(K >= Math.round(N*0.6)){
+      note = `<b>K=${K} ใหญ่ใกล้เคียงจำนวนข้อมูลทั้งหมด (N=${N})</b> — เส้นทำนายจะเรียบจนเกือบเป็นค่าเฉลี่ยรวม เสี่ยง Underfitting`;
+    } else {
+      note = `<b>K=${K}</b> อยู่ในช่วงสมดุล — ลองปรับดูว่าเส้นทำนาย (สีม่วง) ผันผวนหรือราบเรียบเกินไปหรือไม่`;
+    }
+    fitnote.innerHTML = note;
+  }
+
+  tslider.addEventListener('input', render);
+  kslider.addEventListener('input', render);
+  render();
+</script>
+
+</body>
+</html>

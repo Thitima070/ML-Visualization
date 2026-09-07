@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-Means Clustering — จากทฤษฎีสู่การประยุกต์ใช้จริง</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #1a1240;
+    --panel: #241a52;
+    --panel-2: #2c2166;
+    --line: #3d316f;
+    --text: #f0edfa;
+    --text-dim: #a79fce;
+    --blue: #4f8cff;
+    --green: #4ade80;
+    --red: #ef5a5a;
+    --gold: #f2b84b;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;line-height:1.65;}
+  .wrap{max-width:920px;margin:0 auto;padding:0 28px;}
+  .narrow{max-width:660px;}
+  h1,h2,h3{font-family:'Fraunces', serif;font-weight:600;letter-spacing:-0.01em;margin:0;}
+  p{color:var(--text-dim);margin:0.6em 0;}
+
+  .hero{
+    padding:120px 0 90px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+    background:radial-gradient(ellipse at 70% 0%, rgba(79,140,255,0.16), transparent 55%),
+               radial-gradient(ellipse at 10% 90%, rgba(239,90,90,0.12), transparent 50%);
+  }
+  .hero .badge{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:0.82rem;color:var(--text-dim);margin-bottom:22px;
+    border:1px solid var(--line);padding:6px 14px;border-radius:20px;
+  }
+  .hero .badge span{width:7px;height:7px;border-radius:50%;background:var(--blue);}
+  .hero h1{font-size:clamp(2.2rem,5vw,3.6rem);line-height:1.08;max-width:14ch;}
+  .hero p.lede{font-size:1.12rem;max-width:56ch;margin-top:24px;color:#c9c3e6;}
+
+  section{padding:76px 0;border-bottom:1px solid var(--line);}
+  .eyebrow{font-size:0.85rem;color:var(--text-dim);margin-bottom:10px;}
+  h2{font-size:clamp(1.5rem,3vw,2rem);margin-bottom:8px;}
+  .section-lede{max-width:58ch;margin-bottom:40px;}
+
+  /* Transform diagram */
+  .transform-row{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:center;margin-bottom:36px;}
+  @media(max-width:680px){.transform-row{grid-template-columns:1fr;}.transform-row .arrow{transform:rotate(90deg);}}
+  .transform-card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px;}
+  .transform-card .tlabel{font-size:0.85rem;color:var(--text-dim);margin-bottom:12px;}
+  .transform-card svg{width:100%;height:auto;}
+  .arrow{color:var(--blue);font-size:1.6rem;text-align:center;}
+
+  .goal-box{background:var(--panel-2);border-radius:6px;padding:22px 26px;font-size:0.95rem;color:#d7d2ef;}
+  .goal-box b{color:var(--text);}
+
+  /* traits */
+  .trait-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:34px;}
+  @media(max-width:760px){.trait-grid{grid-template-columns:1fr;}}
+  .trait{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:20px;}
+  .trait h3{font-size:0.98rem;margin-bottom:8px;color:var(--blue);}
+  .trait p{font-size:0.88rem;margin:0;}
+
+  .app-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:760px){.app-grid{grid-template-columns:1fr;}}
+  .app-card{background:linear-gradient(160deg, var(--panel-2), var(--panel));border-radius:6px;padding:20px;}
+  .app-card h3{font-size:1rem;margin-bottom:8px;}
+  .app-card p{font-size:0.86rem;margin:0;}
+
+  /* formulas */
+  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  @media(max-width:720px){.metric-grid{grid-template-columns:1fr;}}
+  .metric-card{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:24px 24px 22px;}
+  .metric-card h3{font-size:1rem;margin-bottom:8px;}
+  .metric-card p{font-size:0.9rem;margin-bottom:14px;}
+  .formula{font-family:'IBM Plex Mono', monospace;font-size:1rem;color:var(--gold);background:var(--panel-2);padding:12px 16px;border-radius:4px;display:block;text-align:center;}
+
+  /* 5 steps */
+  .steps{display:flex;flex-direction:column;gap:0;}
+  .step{display:grid;grid-template-columns:64px 1fr;gap:20px;padding:24px 0;border-top:1px solid var(--line);}
+  .step:last-child{border-bottom:none;}
+  .step-num{font-family:'Fraunces', serif;font-size:1.8rem;color:var(--blue);font-weight:600;}
+  .step h3{font-size:1.05rem;margin-bottom:5px;color:var(--text);}
+  .step p{margin:0;font-size:0.94rem;}
+  .step.loop{background:rgba(79,140,255,0.05);}
+
+  /* LAB */
+  .lab{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:32px;}
+  .lab-grid{display:grid;grid-template-columns:1.2fr 0.8fr;gap:30px;align-items:start;}
+  @media(max-width:820px){.lab-grid{grid-template-columns:1fr;}}
+  .plot-wrap svg{width:100%;height:auto;background:var(--panel-2);border-radius:4px;}
+  .axis-label{font-size:11px;fill:var(--text-dim);font-family:'Inter',sans-serif;}
+
+  .stage-panel{display:flex;flex-direction:column;gap:16px;}
+  .stage-head{display:flex;justify-content:space-between;align-items:center;}
+  .stage-name{font-family:'Fraunces',serif;font-size:1.2rem;color:var(--gold);}
+  .stage-dots{display:flex;gap:6px;}
+  .stage-dots span{width:8px;height:8px;border-radius:50%;background:var(--line);}
+  .stage-dots span.done{background:var(--blue);}
+  .stage-dots span.now{background:var(--gold);}
+  .stage-desc{font-size:0.9rem;color:var(--text-dim);min-height:64px;}
+  .stage-desc b{color:var(--text);}
+
+  .btn-row{display:flex;gap:10px;}
+  .btn{
+    flex:1;padding:11px 10px;font-size:0.88rem;text-align:center;border-radius:5px;cursor:pointer;
+    font-family:'Inter',sans-serif;font-weight:600;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--text);transition:all .15s ease;
+  }
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#161129;}
+  .btn:hover{filter:brightness(1.1);}
+
+  table.dist-table{width:100%;border-collapse:collapse;font-size:0.82rem;margin-top:6px;}
+  table.dist-table th,table.dist-table td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--line);color:var(--text-dim);}
+  table.dist-table th{color:var(--text);font-weight:500;font-size:0.75rem;}
+  table.dist-table td.d{font-family:'IBM Plex Mono',monospace;color:var(--text);}
+  .swatch{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+
+  .conv-log{
+    font-family:'IBM Plex Mono', monospace;font-size:0.82rem;background:#100c28;
+    border-radius:4px;padding:14px 16px;color:#8de08d;line-height:1.9;
+  }
+  .conv-log .final{color:var(--gold);font-weight:600;}
+
+  /* mall */
+  .mall{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center;}
+  @media(max-width:760px){.mall{grid-template-columns:1fr;}}
+  .mall-plot svg{width:100%;height:auto;background:var(--panel);border-radius:6px;border:1px solid var(--line);}
+  .legend-grid{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-dim);}
+  .legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+  .mall-info ul{padding-left:18px;margin:14px 0;}
+  .mall-info li{color:var(--text-dim);font-size:0.92rem;margin-bottom:8px;}
+  .mall-info li b{color:var(--text);}
+
+  footer{padding:56px 0 90px;}
+  footer p{font-size:0.9rem;}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="badge"><span></span>Machine Learning · Unsupervised Learning</div>
+    <h1>K-Means Clustering</h1>
+    <p class="lede">จากทฤษฎีคณิตศาสตร์สู่การประยุกต์ใช้จริง — การวิเคราะห์กลไกของอัลกอริทึม การคำนวณทางคณิตศาสตร์ และการต่อยอดสู่กลยุทธ์ธุรกิจ ไม่มีป้ายกำกับ ไม่มีคำตอบล่วงหน้า มีแต่ข้อมูลที่รอถูกจัดกลุ่มตามความใกล้เคียง</p>
+  </div>
+</header>
+
+<section id="mechanism">
+  <div class="wrap">
+    <div class="eyebrow">กลไกพื้นฐาน</div>
+    <h2>จากข้อมูลดิบ สู่กลุ่มที่มีความหมาย</h2>
+    <div class="transform-row">
+      <div class="transform-card">
+        <div class="tlabel">ข้อมูลดิบ (Unlabelled Data) — ไม่มีการกำหนดป้ายกำกับ</div>
+        <svg viewBox="0 0 260 170">
+          <circle cx="60" cy="40" r="5" fill="#8a84b3"/><circle cx="90" cy="30" r="5" fill="#8a84b3"/>
+          <circle cx="55" cy="65" r="5" fill="#8a84b3"/><circle cx="85" cy="60" r="5" fill="#8a84b3"/>
+          <circle cx="70" cy="85" r="5" fill="#8a84b3"/><circle cx="160" cy="40" r="5" fill="#8a84b3"/>
+          <circle cx="190" cy="55" r="5" fill="#8a84b3"/><circle cx="210" cy="35" r="5" fill="#8a84b3"/>
+          <circle cx="120" cy="120" r="5" fill="#8a84b3"/><circle cx="140" cy="135" r="5" fill="#8a84b3"/>
+          <circle cx="115" cy="145" r="5" fill="#8a84b3"/><circle cx="150" cy="115" r="5" fill="#8a84b3"/>
+        </svg>
+      </div>
+      <div class="arrow">→</div>
+      <div class="transform-card">
+        <div class="tlabel">ข้อมูลที่ถูกจัดกลุ่ม (Labelled Clusters)</div>
+        <svg viewBox="0 0 260 170">
+          <circle cx="75" cy="55" r="38" fill="rgba(79,140,255,0.14)" stroke="var(--blue)" stroke-width="1"/>
+          <circle cx="60" cy="40" r="5" fill="var(--blue)"/><circle cx="90" cy="30" r="5" fill="var(--blue)"/>
+          <circle cx="55" cy="65" r="5" fill="var(--blue)"/><circle cx="85" cy="60" r="5" fill="var(--blue)"/>
+          <circle cx="70" cy="85" r="5" fill="var(--blue)"/>
+          <text x="75" y="59" text-anchor="middle" fill="var(--blue)" font-size="13">✕</text>
+          <circle cx="188" cy="42" r="32" fill="rgba(74,222,128,0.14)" stroke="var(--green)" stroke-width="1"/>
+          <circle cx="160" cy="40" r="5" fill="var(--green)"/><circle cx="190" cy="55" r="5" fill="var(--green)"/>
+          <circle cx="210" cy="35" r="5" fill="var(--green)"/>
+          <text x="188" y="46" text-anchor="middle" fill="var(--green)" font-size="13">✕</text>
+          <circle cx="131" cy="130" r="30" fill="rgba(239,90,90,0.14)" stroke="var(--red)" stroke-width="1"/>
+          <circle cx="120" cy="120" r="5" fill="var(--red)"/><circle cx="140" cy="135" r="5" fill="var(--red)"/>
+          <circle cx="115" cy="145" r="5" fill="var(--red)"/><circle cx="150" cy="115" r="5" fill="var(--red)"/>
+          <text x="131" y="134" text-anchor="middle" fill="var(--red)" font-size="13">✕</text>
+        </svg>
+      </div>
+    </div>
+    <div class="goal-box">
+      <b>กลไกพื้นฐาน:</b> อัลกอริทึมประเภท Instance-based Unsupervised Learning และ Partitioning Algorithm ที่ทำหน้าที่แบ่งข้อมูลออกเป็น K กลุ่ม โดยอาศัยความใกล้เคียงของข้อมูลกับ "จุดศูนย์กลางกลุ่ม" (Centroid)
+      &nbsp;·&nbsp; <b>เป้าหมาย:</b> จัดกลุ่มข้อมูลที่มีลักษณะคล้ายกันให้อยู่ด้วยกัน และแยกข้อมูลที่แตกต่างกันออกจากกันอย่างชัดเจน
+    </div>
+  </div>
+</section>
+
+<section id="traits">
+  <div class="wrap">
+    <div class="eyebrow">จุดเด่นและมิติการประยุกต์ใช้งาน</div>
+    <h2>Exploratory Data Analysis</h2>
+    <div class="trait-grid">
+      <div class="trait"><h3>No Labels Needed</h3><p>รวดเร็วและรองรับข้อมูลขนาดใหญ่ ทำงานได้ทันทีโดยไม่ต้องใช้ข้อมูลที่มี Label ช่วยให้เข้าใจโครงสร้างข้อมูลได้อย่างรวดเร็ว</p></div>
+      <div class="trait"><h3>High Efficiency</h3><p>ทำงานได้อย่างรวดเร็วและมีประสิทธิภาพสูงกับชุดข้อมูลขนาดใหญ่</p></div>
+      <div class="trait"><h3>Simplicity</h3><p>มีโครงสร้างและขั้นตอนการทำงานที่ทำความเข้าใจและนำไปประยุกต์ใช้ได้ง่าย</p></div>
+    </div>
+    <div class="app-grid">
+      <div class="app-card"><h3>Marketing</h3><p>การแบ่งกลุ่มลูกค้าเพื่อวางกลยุทธ์การตลาด</p></div>
+      <div class="app-card"><h3>Education</h3><p>การจัดกลุ่มนักเรียนหรือนักศึกษาตามผลการเรียนเพื่อพัฒนาอย่างตรงจุด</p></div>
+      <div class="app-card"><h3>Technology</h3><p>การจัดกลุ่มไฟล์ข่าว เอกสาร หรือรูปภาพที่มีความคล้ายคลึงกัน</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="formulas">
+  <div class="wrap">
+    <div class="eyebrow">กลไกการทำงาน</div>
+    <h2>อาศัยระยะทางและค่าเฉลี่ย</h2>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <h3>Euclidean Distance (การวัดความใกล้เคียง)</h3>
+        <p>ใช้คำนวณระยะห่างระหว่างจุดข้อมูลดิบกับจุด Centroid</p>
+        <span class="formula">d = √(x₁−x₂)² + (y₁−y₂)²</span>
+      </div>
+      <div class="metric-card">
+        <h3>Mean Calculation (การหาจุดศูนย์กลางใหม่)</h3>
+        <p>ใช้ปรับตำแหน่ง Centroid ให้เคลื่อนเข้าหาจุดศูนย์กลางที่แท้จริงของกลุ่ม</p>
+        <span class="formula">x̄ = Σx / n &nbsp;&nbsp; ȳ = Σy / n</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="fivesteps">
+  <div class="wrap">
+    <div class="eyebrow">The Iterative Cycle</div>
+    <h2>5 ขั้นตอนการทำงานของ K-Means</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div><h3>กำหนดจำนวนกลุ่ม (K)</h3><p>ระบุจำนวนกลุ่มข้อมูลที่ต้องการจัดแบ่งอย่างเหมาะสม</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div><h3>กำหนดจุดศูนย์กลางเริ่มต้น (Initial Centroids)</h3><p>สุ่มเลือกจุดข้อมูลจำนวน K จุด เพื่อเป็นพิกัดเริ่มต้นของศูนย์กลางกลุ่ม</p></div>
+      </div>
+      <div class="step loop">
+        <div class="step-num">03</div>
+        <div><h3>จัดข้อมูลเข้ากลุ่ม (Cluster Assignment)</h3><p>ดึงข้อมูลเข้าหา Centroid ที่ใกล้ที่สุดด้วย Euclidean Distance</p></div>
+      </div>
+      <div class="step loop">
+        <div class="step-num">04</div>
+        <div><h3>คำนวณหา Centroid ใหม่ (Update Centroid)</h3><p>คำนวณค่าเฉลี่ยพิกัด (Mean) ของจุดข้อมูลทั้งหมดที่สังกัดอยู่ในแต่ละกลุ่ม เพื่อเป็นพิกัดศูนย์กลางใหม่</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <div><h3>ทำซ้ำ (Iteration)</h3><p>ย้อนทำขั้นตอนที่ 3 และ 4 ซ้ำ จนกระทั่งค่าจุดศูนย์กลางไม่มีการเปลี่ยนแปลงอีกต่อไป (Convergence) หรือทำงานครบรอบสูงสุดที่กำหนด</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="lab">
+  <div class="wrap">
+    <div class="eyebrow">การพิสูจน์ทางคณิตศาสตร์</div>
+    <h2>ลองไล่ทีละขั้น: 6 จุดข้อมูล, K=2</h2>
+    <p class="section-lede narrow">A(2,3), B(3,4), C(4,5), D(8,8), E(9,9), F(8,10) — กดปุ่ม "ขั้นถัดไป" เพื่อไล่ดูว่า K-Means เดินตามวงล้อการปรับแต่งอย่างไรจนลู่เข้าหาคำตอบ</p>
+
+    <div class="lab">
+      <div class="lab-grid">
+        <div class="plot-wrap">
+          <svg viewBox="0 0 640 420" id="plot">
+            <line x1="60" y1="360" x2="600" y2="360" stroke="#48407a"/>
+            <line x1="60" y1="30" x2="60" y2="360" stroke="#48407a"/>
+            <text x="330" y="400" text-anchor="middle" class="axis-label">X →</text>
+            <text x="24" y="195" text-anchor="middle" class="axis-label" transform="rotate(-90 24 195)">Y →</text>
+            <g id="ticks"></g>
+            <g id="conn-lines"></g>
+            <g id="points"></g>
+            <g id="centroids"></g>
+          </svg>
+        </div>
+
+        <div class="stage-panel">
+          <div class="stage-head">
+            <div class="stage-name" id="stagename">Step 1</div>
+            <div class="stage-dots" id="stagedots"></div>
+          </div>
+          <div class="stage-desc" id="stagedesc"></div>
+          <div class="btn-row">
+            <div class="btn" id="btnback">◂ ย้อนกลับ</div>
+            <div class="btn primary" id="btnnext">ขั้นถัดไป ▸</div>
+          </div>
+          <div id="extra"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="mallexample">
+  <div class="wrap">
+    <div class="eyebrow">การประยุกต์ใช้จริง</div>
+    <h2>วิเคราะห์พฤติกรรมลูกค้าห้างสรรพสินค้า</h2>
+    <div class="mall">
+      <div class="mall-plot">
+        <svg viewBox="0 0 300 260">
+          <line x1="35" y1="220" x2="285" y2="220" stroke="#48407a"/>
+          <line x1="35" y1="20" x2="35" y2="220" stroke="#48407a"/>
+          <text x="160" y="245" text-anchor="middle" class="axis-label">รายได้ต่อปี (k$) →</text>
+          <text x="14" y="120" text-anchor="middle" class="axis-label" transform="rotate(-90 14 120)">คะแนนการใช้จ่าย →</text>
+          <g id="mallpts"></g>
+        </svg>
+        <div class="legend-grid" id="malllegend"></div>
+      </div>
+      <div class="mall-info">
+        <h3 style="font-size:1.05rem;">Mall Customer Segmentation</h3>
+        <ul>
+          <li><b>Dataset:</b> ชุดข้อมูลลูกค้า 200 ราย</li>
+          <li><b>Features ที่เลือกใช้:</b> รายได้ต่อปี และ คะแนนการใช้จ่าย</li>
+          <li><b>เป้าหมาย:</b> ค้นหารูปแบบแฝงของกลุ่มลูกค้า เพื่อออกแบบแคมเปญการตลาดที่ตรงจุด โดยให้โมเดลทำความเข้าใจข้อมูลโดยปราศจากอคติของมนุษย์</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap narrow">
+    <p>สรุปสั้น ๆ: K-Means ไม่ต้องมีป้ายกำกับใด ๆ ล่วงหน้า มันแค่ผลัดกัน "จัดกลุ่มตามเพื่อนบ้านที่ใกล้ที่สุด" แล้ว "ขยับจุดศูนย์กลางเข้าหาค่าเฉลี่ย" ซ้ำไปซ้ำมา จนกระทั่งไม่มีอะไรเปลี่ยนแปลงอีก — เรียบง่าย รวดเร็ว และเป็นจุดเริ่มต้นที่ดีสำหรับการสำรวจข้อมูลที่ไม่มีคำตอบล่วงหน้า</p>
+  </div>
+</footer>
+
+<script>
+  const svgNS = "http://www.w3.org/2000/svg";
+  const points = [
+    {id:'A', x:2, y:3}, {id:'B', x:3, y:4}, {id:'C', x:4, y:5},
+    {id:'D', x:8, y:8}, {id:'E', x:9, y:9}, {id:'F', x:8, y:10}
+  ];
+  const COLOR = { neutral:'#8a84b3', g1:'#4f8cff', g2:'#4ade80', c1:'#ef5a5a', c2:'#4ade80', gold:'#f2b84b' };
+
+  const xMin=0, xMax=11, yMin=0, yMax=11;
+  const xPix = x => 60 + (x-xMin)/(xMax-xMin) * (600-60);
+  const yPix = y => 360 - (y-yMin)/(yMax-yMin) * (360-30);
+
+  const ticksG = document.getElementById('ticks');
+  const pointsG = document.getElementById('points');
+  const connG = document.getElementById('conn-lines');
+  const centG = document.getElementById('centroids');
+
+  for(let v=0; v<=11; v+=2){
+    const x = xPix(v), y = yPix(v);
+    const lx = document.createElementNS(svgNS,'line');
+    lx.setAttribute('x1',x); lx.setAttribute('x2',x); lx.setAttribute('y1',356); lx.setAttribute('y2',360);
+    lx.setAttribute('stroke','#48407a'); ticksG.appendChild(lx);
+    const tx = document.createElementNS(svgNS,'text');
+    tx.setAttribute('x',x); tx.setAttribute('y',376); tx.setAttribute('text-anchor','middle'); tx.setAttribute('class','axis-label');
+    tx.textContent = v; ticksG.appendChild(tx);
+    const ty = document.createElementNS(svgNS,'text');
+    ty.setAttribute('x',50); ty.setAttribute('y',y+4); ty.setAttribute('text-anchor','end'); ty.setAttribute('class','axis-label');
+    ty.textContent = v; ticksG.appendChild(ty);
+  }
+
+  points.forEach(p=>{
+    const c = document.createElementNS(svgNS,'circle');
+    c.setAttribute('id','pt-'+p.id);
+    c.setAttribute('cx', xPix(p.x)); c.setAttribute('cy', yPix(p.y));
+    c.setAttribute('r', 8); c.setAttribute('fill', COLOR.neutral);
+    c.setAttribute('stroke', '#1a1240'); c.setAttribute('stroke-width', 2);
+    pointsG.appendChild(c);
+    const label = document.createElementNS(svgNS,'text');
+    label.setAttribute('x', xPix(p.x)); label.setAttribute('y', yPix(p.y) - 14);
+    label.setAttribute('text-anchor','middle'); label.setAttribute('fill', '#f0edfa');
+    label.setAttribute('font-size', '11'); label.setAttribute('font-family','IBM Plex Mono, monospace');
+    label.textContent = `${p.id}(${p.x},${p.y})`;
+    pointsG.appendChild(label);
+  });
+
+  function dist(ax,ay,bx,by){ return Math.sqrt((ax-bx)**2 + (ay-by)**2); }
+
+  // pre-computed per slide
+  const initC1 = {x:2, y:3}; // = A
+  const initC2 = {x:9, y:9}; // = E
+  const group1 = ['A','B','C']; // assigned to C1
+  const group2 = ['D','E','F']; // assigned to C2
+  const newC1 = {x:3.00, y:4.00};
+  const newC2 = {x:8.33, y:9.00};
+  const distTable = {
+    A:{c1:0.00, c2:9.22}, B:{c1:1.41, c2:7.81}, C:{c1:2.83, c2:6.40},
+    D:{c1:7.81, c2:1.41}, E:{c1:9.22, c2:0.00}, F:{c1:9.22, c2:1.41}
+  };
+
+  const stages = [
+    {
+      name:'Step 1 · Raw Data',
+      desc:'จุดข้อมูลดิบ 6 จุด ในพิกัด 2 มิติ ยังไม่มีการจัดกลุ่มหรือกำหนดจุดศูนย์กลางใด ๆ',
+      render: ()=>{
+        points.forEach(p=>document.getElementById('pt-'+p.id).setAttribute('fill', COLOR.neutral));
+        connG.innerHTML=''; centG.innerHTML='';
+        return '';
+      }
+    },
+    {
+      name:'Step 2 · Initial Centroids',
+      desc:'กำหนด K=2 แล้วสุ่มเลือกจุดข้อมูลมาเป็นจุดศูนย์กลางเริ่มต้น: <b>C1 ที่ตำแหน่งเดียวกับ A (2,3)</b> และ <b>C2 ที่ตำแหน่งเดียวกับ E (9,9)</b>',
+      render: ()=>{
+        points.forEach(p=>document.getElementById('pt-'+p.id).setAttribute('fill', COLOR.neutral));
+        connG.innerHTML='';
+        drawCentroid('c1', initC1.x, initC1.y, COLOR.c1, 'C1');
+        drawCentroid('c2', initC2.x, initC2.y, COLOR.c2, 'C2');
+        return '';
+      }
+    },
+    {
+      name:'Step 3 · Distance & Assignment',
+      desc:'คำนวณระยะทาง Euclidean จากทุกจุดไปยัง C1 และ C2 แล้วจัดเข้ากลุ่มที่ใกล้กว่า',
+      render: ()=>{
+        connG.innerHTML='';
+        points.forEach(p=>{
+          const isG1 = group1.includes(p.id);
+          document.getElementById('pt-'+p.id).setAttribute('fill', isG1 ? COLOR.g1 : COLOR.g2);
+          const cx = isG1 ? initC1 : initC2;
+          const l = document.createElementNS(svgNS,'line');
+          l.setAttribute('x1', xPix(p.x)); l.setAttribute('y1', yPix(p.y));
+          l.setAttribute('x2', xPix(cx.x)); l.setAttribute('y2', yPix(cx.y));
+          l.setAttribute('stroke', isG1 ? COLOR.g1 : COLOR.g2);
+          l.setAttribute('stroke-dasharray','4 3'); l.setAttribute('stroke-opacity',0.6);
+          connG.appendChild(l);
+        });
+        let rows = '';
+        points.forEach(p=>{
+          const isG1 = group1.includes(p.id);
+          rows += `<tr><td><span class="swatch" style="background:${isG1?COLOR.g1:COLOR.g2}"></span>${p.id}(${p.x},${p.y})</td>
+            <td class="d">${distTable[p.id].c1.toFixed(2)}</td><td class="d">${distTable[p.id].c2.toFixed(2)}</td></tr>`;
+        });
+        return `<table class="dist-table"><thead><tr><th>จุด</th><th>ระยะถึง C1</th><th>ระยะถึง C2</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+    },
+    {
+      name:'Step 4 · Update Centroid',
+      desc:'คำนวณค่าเฉลี่ยพิกัดของแต่ละกลุ่ม แล้วขยับ Centroid ไปยังตำแหน่งใหม่: <b>C1 → (3.00, 4.00)</b>, <b>C2 → (8.33, 9.00)</b>',
+      render: ()=>{
+        drawCentroid('c1', newC1.x, newC1.y, COLOR.c1, 'C1');
+        drawCentroid('c2', newC2.x, newC2.y, COLOR.c2, 'C2');
+        connG.innerHTML='';
+        points.forEach(p=>{
+          const isG1 = group1.includes(p.id);
+          const cx = isG1 ? newC1 : newC2;
+          const l = document.createElementNS(svgNS,'line');
+          l.setAttribute('x1', xPix(p.x)); l.setAttribute('y1', yPix(p.y));
+          l.setAttribute('x2', xPix(cx.x)); l.setAttribute('y2', yPix(cx.y));
+          l.setAttribute('stroke', isG1 ? COLOR.g1 : COLOR.g2);
+          l.setAttribute('stroke-dasharray','4 3'); l.setAttribute('stroke-opacity',0.6);
+          connG.appendChild(l);
+        });
+        return `<div class="formula" style="text-align:left;font-size:0.85rem;">C1 = ((2+3+4)/3, (3+4+5)/3) = (3.00, 4.00)<br>C2 = ((8+9+8)/3, (8+9+10)/3) = (8.33, 9.00)</div>`;
+      }
+    },
+    {
+      name:'Step 5 · Convergence',
+      desc:'เมื่อคำนวณต่อในรอบถัดไป การจัดกลุ่มไม่เปลี่ยนแปลงอีก — Centroid หยุดเคลื่อนที่ (Convergence)',
+      render: ()=>{
+        return `<div class="conv-log">Iteration 1: Centroid shift = 5.852528<br>Iteration 2: Centroid shift = 2.716512<br>Iteration 3: Centroid shift = 0.312264<br><span class="final">Iteration 4: Centroid shift = 0.000000 → K-Means converged.</span></div>`;
+      }
+    }
+  ];
+
+  function drawCentroid(id, x, y, color, label){
+    let el = document.getElementById('cent-'+id);
+    if(!el){
+      el = document.createElementNS(svgNS,'g');
+      el.setAttribute('id','cent-'+id);
+      centG.appendChild(el);
+    }
+    el.innerHTML = '';
+    const cx = xPix(x), cy = yPix(y);
+    const s = 8;
+    const l1 = document.createElementNS(svgNS,'line');
+    l1.setAttribute('x1',cx-s); l1.setAttribute('y1',cy-s); l1.setAttribute('x2',cx+s); l1.setAttribute('y2',cy+s);
+    l1.setAttribute('stroke', color); l1.setAttribute('stroke-width', 3); l1.setAttribute('stroke-linecap','round');
+    const l2 = document.createElementNS(svgNS,'line');
+    l2.setAttribute('x1',cx-s); l2.setAttribute('y1',cy+s); l2.setAttribute('x2',cx+s); l2.setAttribute('y2',cy-s);
+    l2.setAttribute('stroke', color); l2.setAttribute('stroke-width', 3); l2.setAttribute('stroke-linecap','round');
+    el.appendChild(l1); el.appendChild(l2);
+    const t = document.createElementNS(svgNS,'text');
+    t.setAttribute('x', cx); t.setAttribute('y', cy-14); t.setAttribute('text-anchor','middle');
+    t.setAttribute('fill', color); t.setAttribute('font-size','11'); t.setAttribute('font-family','IBM Plex Mono, monospace');
+    t.textContent = label;
+    el.appendChild(t);
+  }
+
+  let stageIdx = 0;
+  const stagename = document.getElementById('stagename');
+  const stagedesc = document.getElementById('stagedesc');
+  const stagedots = document.getElementById('stagedots');
+  const extra = document.getElementById('extra');
+  const btnNext = document.getElementById('btnnext');
+  const btnBack = document.getElementById('btnback');
+
+  stages.forEach((s,i)=>{
+    const dot = document.createElement('span');
+    stagedots.appendChild(dot);
+  });
+
+  function renderStage(){
+    const s = stages[stageIdx];
+    stagename.textContent = s.name;
+    stagedesc.innerHTML = s.desc;
+    const dots = stagedots.children;
+    for(let i=0;i<dots.length;i++){
+      dots[i].className = i < stageIdx ? 'done' : (i===stageIdx ? 'now' : '');
+    }
+    extra.innerHTML = s.render();
+    btnBack.style.opacity = stageIdx===0 ? 0.4 : 1;
+    btnNext.textContent = stageIdx === stages.length-1 ? 'เริ่มใหม่ ↺' : 'ขั้นถัดไป ▸';
+  }
+
+  btnNext.addEventListener('click', ()=>{
+    if(stageIdx === stages.length-1){ stageIdx = 0; }
+    else { stageIdx++; }
+    renderStage();
+  });
+  btnBack.addEventListener('click', ()=>{
+    if(stageIdx>0){ stageIdx--; renderStage(); }
+  });
+
+  renderStage();
+
+  // Mall customer scatter (illustrative synthetic points resembling 5 segments)
+  const mallG = document.getElementById('mallpts');
+  const mxPix = v => 35 + (v-10)/(140-10) * (285-35);
+  const myPix = v => 220 - (v-0)/(100-0) * (220-20);
+  function seededRand(seed){ let s = seed; return ()=>{ s = (s*9301+49297)%233280; return s/233280; }; }
+  const rnd = seededRand(42);
+  const clustersDef = [
+    {cx:25, cy:20, n:22, color:'#4f8cff', label:'ประหยัด รายได้น้อย'},
+    {cx:25, cy:80, n:22, color:'#4ade80', label:'ใช้จ่ายสูง รายได้น้อย'},
+    {cx:55, cy:50, n:34, color:'#f2b84b', label:'กลุ่มกลาง'},
+    {cx:88, cy:18, n:22, color:'#9b7cf0', label:'ประหยัด รายได้สูง'},
+    {cx:88, cy:82, n:22, color:'#ef5a5a', label:'ใช้จ่ายสูง รายได้สูง'}
+  ];
+  clustersDef.forEach(cl=>{
+    for(let i=0;i<cl.n;i++){
+      const jx = (rnd()-0.5) * 26;
+      const jy = (rnd()-0.5) * 26;
+      const x = Math.min(135, Math.max(12, cl.cx + jx));
+      const y = Math.min(98, Math.max(2, cl.cy + jy));
+      const c = document.createElementNS(svgNS,'circle');
+      c.setAttribute('cx', mxPix(x)); c.setAttribute('cy', myPix(y));
+      c.setAttribute('r', 2.8); c.setAttribute('fill', cl.color); c.setAttribute('opacity','0.85');
+      mallG.appendChild(c);
+    }
+  });
+
+  // legend
+  const mallLegend = document.getElementById('malllegend');
+  if(mallLegend){
+    mallLegend.innerHTML = clustersDef.map(cl =>
+      `<div class="legend-item"><span class="legend-dot" style="background:${cl.color}"></span>${cl.label}</div>`
+    ).join('');
+  }
+</script>
+
+</body>
+</html>
